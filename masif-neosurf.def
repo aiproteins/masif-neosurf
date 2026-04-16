@@ -1,0 +1,66 @@
+Bootstrap: docker
+From: pymesh/pymesh
+
+%post
+    # Install system dependencies
+    apt-get update && \
+        apt-get install -y wget git unzip cmake vim libgl1-mesa-glx dssp
+
+    # Build APBS (includes MSMS)
+    mkdir -p /install
+    cd /install
+    git clone https://github.com/Electrostatics/apbs-pdb2pqr
+    cd /install/apbs-pdb2pqr
+    git checkout b3bfeec
+    git submodule init
+    git submodule update
+    cmake -DGET_MSMS=ON apbs
+    make
+    make install
+    cp -r /install/apbs-pdb2pqr/apbs/externals/mesh_routines/msms/msms_i86_64Linux2_2.6.1 /root/msms/
+
+    # Install pip for Python 3.6
+    curl https://bootstrap.pypa.io/pip/3.6/get-pip.py -o /install/get-pip.py
+    python /install/get-pip.py
+
+    # Install PDB2PQR
+    pip install pdb2pqr
+
+    # Build reduce
+    cd /install
+    git clone https://github.com/rlabduke/reduce.git
+    cd /install/reduce
+    make install
+    mkdir -p /install/reduce/build/reduce
+    cd /install/reduce/build/reduce
+    cmake /install/reduce/reduce_src
+    cd /install/reduce/reduce_src
+    make
+    make install
+
+    # Install Python libraries
+    pip3 install matplotlib
+    pip3 install ipython Biopython sklearn tensorflow==1.12 networkx open3d==0.8.0.0 dask==1.2.2 packaging
+
+    # Install small molecule dependencies
+    pip3 install rdkit-pypi==2021.9.4
+    pip3 install ProDy==2.0
+    pip install openbabel-wheel==3.1.1.7
+
+    # Update reduce het dictionary
+    cd /install/reduce
+    python2 update_het_dict.py
+
+%environment
+    export MSMS_BIN=/usr/local/bin/msms
+    export APBS_BIN=/usr/local/bin/apbs
+    export MULTIVALUE_BIN=/usr/local/share/apbs/tools/bin/multivalue
+    export PDB2PQR_BIN=/usr/local/bin/pdb2pqr30
+    export REDUCE_HET_DICT=/install/reduce/reduce_wwPDB_het_dict.txt
+
+%runscript
+    exec bash "$@"
+
+%labels
+    Author MaSIF-neosurf
+    Description MaSIF-neosurf container for protein-ligand neosurface analysis
